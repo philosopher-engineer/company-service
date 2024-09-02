@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  app:
+    restart: always
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_DATABASE=company_db
+      - DB_USERNAME=user
+      - DATABASE_URL=postgres://user:password@postgres:5432/company_db?sslmode=disable
+      - KAFKA_BROKER=kafka:9092
+    depends_on:
+      - db
+      - kafka
+      - zookeeper
+    networks:
+      - app-network
+
+  db:
+    container_name: postgres
+    image: postgres:13-alpine
+    environment:
+       - POSTGRES_HOST=database
+       - POSTGRES_USER=user
+       - POSTGRES_PASSWORD=password
+       - POSTGRES_DB=company_db
+    ports:
+      - "5432:5432"
+    depends_on:
+      - zookeeper
+    networks:
+      - app-network
+
+  kafka:
+    restart: always
+    image: docker.io/bitnami/kafka:3.3
+    ports:
+      - "9093:9093"
+    volumes:
+      - "kafka-volume:/bitnami"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=CLIENT://:9092,EXTERNAL://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=CLIENT
+    depends_on:
+      - zookeeper
+    networks:
+      - app-network
+
+  zookeeper:
+    restart: always
+    image: docker.io/bitnami/zookeeper:3.8
+    ports:
+      - "2181:2181"
+    volumes:
+      - "zookeeper-volume:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - app-network
+
+volumes:
+  kafka-volume:
+  zookeeper-volume:
+
+networks:
+  app-network:
+    driver: bridge
+
